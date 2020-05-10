@@ -1,0 +1,104 @@
+version: '3'
+services:
+  app:
+    container_name: full_app
+    build:
+      context: .
+      dockerfile: ./dockerfile.dev
+    environment: 
+      - GIN_MODE=release
+    expose: 
+      - 8888
+    restart: on-failure
+    volumes:              # without this volume mapping to the directory of our project, live reloading wont happen
+      - .:/app
+    # command:
+    #   - go build main.go
+    depends_on:
+      - forumPostgres # This service depends on postgres. Start that first.
+      # - forum-mysql # This service depends on mysql. Start that first.
+    networks:
+      - forum
+
+  forumPostgres:
+    image: postgres:latest
+    container_name: db_postgres
+    environment:
+      - POSTGRES_USER=${DB_USER}  
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+      - DATABASE_HOST=${DB_HOST} 
+    ports:
+      - '5431:5432'
+    volumes:
+      - database_postgres:/var/lib/postgresql/data
+    networks:
+      - forum
+    
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin_container_2
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "postgres"
+      PGADMIN_DEFAULT_PASSWORD: "12345"
+    depends_on:
+      - forumPostgres
+    ports:
+      - "5051:80"
+    networks:
+      - forum
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - 80:80
+    volumes:
+      - .:/app
+      - ./config/nginx:/etc/nginx/conf.d
+    depends_on:
+      - app
+    networks:
+      - forum
+  # forum-mysql:
+  #   image: mysql:5.7
+  #   container_name: full_db_mysql
+  #   ports: 
+  #     - 3306:3306
+  #   environment: 
+  #     - MYSQL_ROOT_HOST=${DB_HOST} 
+  #     - MYSQL_USER=${DB_USER}
+  #     - MYSQL_PASSWORD=${DB_PASSWORD}
+  #     - MYSQL_DATABASE=${DB_NAME}
+  #     - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+  #   volumes:
+  #     - database_mysql:/var/lib/mysql
+  #   networks:
+  #     - forum
+  
+  # phpmyadmin:
+  #   image: phpmyadmin/phpmyadmin
+  #   container_name: phpmyadmin_container
+  #   depends_on:
+  #     - forum-mysql
+  #   environment:
+  #     - PMA_HOST=mysql # Note the "mysql". Must be the name of the what you used as the mysql service.
+  #     - PMA_USER=${DB_USER}
+  #     - PMA_PORT=${DB_PORT}
+  #     - PMA_PASSWORD=${DB_PASSWORD}
+  #   ports:
+  #     - 9090:80
+  #   restart: always
+  #   networks:
+  #     - forum
+
+
+volumes:
+  api:
+  database_postgres:
+  # database_mysql:
+
+# Networks to be created to facilitate communication between containers
+networks:
+  forum:
+    driver: bridge
