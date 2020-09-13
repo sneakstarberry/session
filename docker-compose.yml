@@ -1,4 +1,5 @@
 version: '3'
+
 services:
   app:
     container_name: full_app
@@ -7,6 +8,8 @@ services:
       dockerfile: ./dockerfile
     ports: 
       - 8888:8888 
+    command:
+      - fresh
     restart: on-failure
     volumes:              # without this volume mapping to the directory of our project, live reloading wont happen
       - .:/app
@@ -30,7 +33,7 @@ services:
       - database_postgres:/var/lib/postgresql/data
     networks:
       - forum
-    
+
   pgadmin:
     image: dpage/pgadmin4
     container_name: pgadmin_container_2

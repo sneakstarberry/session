@@ -1,6 +1,5 @@
 FROM golang:latest
 
-
 WORKDIR /app
 
 COPY ./go.mod .
@@ -15,4 +14,4 @@ EXPOSE 8888
 
 COPY . /app
 
-CMD ["fresh"]
+# CMD ["fresh"]

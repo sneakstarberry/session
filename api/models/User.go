@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	// "github.com/badoux/checkmail"
 	"github.com/badoux/checkmail"
 	"github.com/jinzhu/gorm"
 	"github.com/sneakstarberry/session/api/security"
@@ -128,6 +129,7 @@ func (u *User) SaveUser(db *gorm.DB) (*User, error) {
 		fmt.Println(err)
 		return &User{}, err
 	}
+
 	return u, nil
 }
 

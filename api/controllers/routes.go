@@ -11,7 +11,7 @@ func (s *Server) initializeRoutes() {
 
 		// Reset password:
 
-		//Users routes
+		// Users routes
 		v1.POST("/users", s.CreateUser)
 		v1.GET("/users", s.GetUsers)
 		v1.GET("/users/:id", s.GetUser)

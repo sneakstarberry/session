@@ -1,42 +1,126 @@
 package controllers
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strconv"
+	"strings"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/gin-gonic/gin"
 	"github.com/sneakstarberry/session/api/auth"
 	"github.com/sneakstarberry/session/api/models"
+	"github.com/sneakstarberry/session/api/utils/fileformat"
 	"github.com/sneakstarberry/session/api/utils/formaterror"
 )
 
 func (server *Server) CreatePost(c *gin.Context) {
 	//clear previous error if any
 	errList = map[string]string{}
+	form, _ := c.MultipartForm()
+	title := form.Value["title"]
+	content := form.Value["content"]
 
-	body, err := ioutil.ReadAll(c.Request.Body)
+	file, err := c.FormFile("file")
 	if err != nil {
-		errList["Invalid_body"] = "Unable to get request"
+		errList["Invalid_file"] = "Invalid File"
 		c.JSON(http.StatusUnprocessableEntity, gin.H{
 			"status": http.StatusUnprocessableEntity,
 			"error":  errList,
 		})
 		return
 	}
+
+	f, err := file.Open()
+	if err != nil {
+		errList["Invalid_file"] = "Invalid File"
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
+			"status": http.StatusUnprocessableEntity,
+			"error":  errList,
+		})
+		return
+	}
+	defer f.Close()
+
+	size := file.Size
+	fmt.Print(file.Size)
+	if size > int64(51200000) {
+		errList["Too_large"] = "Sorry, Please upload an Image of 500KB or less"
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
+			"status": http.StatusUnprocessableEntity,
+			"error":  errList,
+		})
+		return
+	}
+
+	buffer := make([]byte, size)
+	f.Read(buffer)
+	fileBytes := bytes.NewReader(buffer)
+	fileType := http.DetectContentType(buffer)
+	//if the image is valid
+	if !strings.HasPrefix(fileType, "image") {
+		errList["Not_Image"] = "Please Upload a valid image"
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
+			"status": http.StatusUnprocessableEntity,
+			"error":  errList,
+		})
+		return
+	}
+	filePath := fileformat.UniqueFormat(file.Filename)
+	path := "/profile-photos/" + filePath
+	params := &s3.PutObjectInput{
+		Bucket:        aws.String("sneakapi"),
+		Key:           aws.String(path),
+		Body:          fileBytes,
+		ContentLength: aws.Int64(size),
+		ContentType:   aws.String(fileType),
+		ACL:           aws.String("public-read"),
+	}
+	s3Config := &aws.Config{
+		Credentials: credentials.NewStaticCredentials(
+			os.Getenv("DO_SPACES_KEY"), os.Getenv("DO_SPACES_SECRET"), ""),
+		Endpoint: aws.String(os.Getenv("DO_SPACES_ENDPOINT")),
+		Region:   aws.String(os.Getenv("DO_SPACES_REGION")),
+	}
+	newSession := session.New(s3Config)
+	s3Client := s3.New(newSession)
+
+	_, err = s3Client.PutObject(params)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	// body, err := ioutil.ReadAll(c.Request.Body)
+	// if err != nil {
+	// 	errList["Invalid_body"] = "Unable to get request"
+	// 	c.JSON(http.StatusUnprocessableEntity, gin.H{
+	// 		"status": http.StatusUnprocessableEntity,
+	// 		"error":  errList,
+	// 	})
+	// 	return
+	// }
 	post := models.Post{}
+	post.ImgURL = path
+	post.Title = title[0]
+	post.Content = content[0]
 
-	err = json.Unmarshal(body, &post)
-	if err != nil {
-		errList["Unmarshal_error"] = "Cannot unmarshal body"
-		c.JSON(http.StatusUnprocessableEntity, gin.H{
-			"status": http.StatusUnprocessableEntity,
-			"error":  errList,
-		})
-		return
-	}
+	// err = json.Unmarshal(body, &post)
+	// if err != nil {
+	// 	errList["Unmarshal_error"] = "Cannot unmarshal body"
+	// 	c.JSON(http.StatusUnprocessableEntity, gin.H{
+	// 		"status": http.StatusUnprocessableEntity,
+	// 		"error":  errList,
+	// 	})
+	// 	return
+	// }
 	uid, err := auth.ExtractTokenID(c.Request)
 	if err != nil {
 		errList["Unauthorized"] = "Unauthorized"

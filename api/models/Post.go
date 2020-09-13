@@ -16,7 +16,7 @@ type Post struct {
 	Content   string    `gorm:"text;not null;" json:"content"`
 	Author    User      `json:"author"`
 	AuthorID  uint32    `gorm:"not null" json:"author_id"`
-	ImgURL    string    `gorm:"size:1000;null;" json:"avatar_path"`
+	ImgURL    string    `gorm:"size:1000;null;" json:"img_url"`
 	CreatedAt time.Time `gorm:"default:CURRENT_TIMESTAMP" json:"created_at"`
 	UpdatedAt time.Time `gorm:"default:CURRENT_TIMESTAMP" json:"updated_at"`
 }
@@ -26,6 +26,7 @@ func (p *Post) Prepare() {
 	p.Title = html.EscapeString(strings.TrimSpace(p.Title))
 	p.Content = html.EscapeString(strings.TrimSpace(p.Content))
 	p.Author = User{}
+	p.ImgURL = html.EscapeString(strings.TrimSpace(p.ImgURL))
 	p.CreatedAt = time.Now()
 	p.UpdatedAt = time.Now()
 
